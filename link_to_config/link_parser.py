@@ -44,6 +44,13 @@ def parse_base(link: str) -> BaseLink:
         raw=parsed
     )
 
+def parse_any(link: str) -> VLessLink | ShadowSocksLink:
+    if link.startswith("vless://"):
+        return parse_vless(link)
+    elif link.startswith("ss://"):
+        return parse_shadowsocks(link)
+    raise NotImplementedError(f"Encountered unsupported protocol")
+
 def parse_vless(link: str) -> VLessLink:
     # Разбираем URL на части
     base_link = parse_base(link)
@@ -66,7 +73,10 @@ def parse_shadowsocks(link: str) -> ShadowSocksLink:
     except:
         method_and_password = base_link.username
 
-    method, password = method_and_password.split(":")
+    try:
+        method, password = method_and_password.split(":")
+    except ValueError as e:
+        raise NotImplementedError(e)
 
     return ShadowSocksLink(base_link.address, base_link.port, method, password)
 

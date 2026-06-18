@@ -14,7 +14,7 @@ def link_to_config(link: str, inbound_port: int) -> dict:
         return vless_to_config(link, inbound_port)
     elif link.startswith("ss://"):
         return shadowsocks_to_config(link, inbound_port)
-    raise UnsupportedError(f"Encountered unsupported protocol")
+    raise NotImplementedError(f"Encountered unsupported protocol")
 
 def wrap_config(outbound: dict, inbound_port: int) -> dict:
     result = {
@@ -53,7 +53,7 @@ def vless_to_config(link: str, inbound_port: int) -> dict:
     url = link_parser.parse_vless(link)
 
     if url.security not in ["none", "reality"]:
-        raise UnsupportedError(f"{url.security} secure protocol is not supported.") # And don't need to, it doesn't work in most cases
+        raise NotImplementedError(f"{url.security} secure protocol is not supported.") # And don't need to, it doesn't work in most cases
 
     vless_outbound = VLessOutbound(
         VLessSettings(
