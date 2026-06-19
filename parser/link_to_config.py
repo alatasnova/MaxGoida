@@ -6,8 +6,6 @@ import json
 from . import link_parser
 from .config_constructor import *
 
-class UnsupportedError(Exception):
-    """Raises when encounter something that useless or too hard to implement right now."""
 
 def link_to_config(link: str, inbound_port: int) -> dict:
     if link.startswith("vless://"):

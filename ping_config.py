@@ -1,12 +1,8 @@
-import socket
-import time
-
 import requests
+import xray
 
-import tunnel
-
-from link_to_config import link_parser, link_to_config
 from dataclasses import dataclass
+from parser import link_parser, link_to_config
 
 @dataclass
 class PingResult:
@@ -15,9 +11,10 @@ class PingResult:
     success: bool
     reason: str
 
-DEFAULT_TEST_URL = "http://cp.cloudflare.com/"
 
-def try_ping_link(link: str, test_url=DEFAULT_TEST_URL, local_tunnel_port=8089, timeout=2) -> PingResult:
+DEFAULT_PING_URL = "http://cp.cloudflare.com/"
+
+def try_ping_link(link: str, ping_url=DEFAULT_PING_URL, local_tunnel_port=8089, timeout=2) -> PingResult:
     try:
         parsed_link = link_parser.parse_any(link)
     except NotImplementedError:
@@ -35,15 +32,13 @@ def try_ping_link(link: str, test_url=DEFAULT_TEST_URL, local_tunnel_port=8089, 
 
 
     with tunnel.Tunnel(config, local_tunnel_port, verbose=False):
-        start_time = time.time()
         try:
-            response = requests.head(test_url, proxies=proxies, timeout=timeout)
+            response = requests.head(ping_url, proxies=proxies, timeout=timeout)
             if response.status_code == 200 or response.status_code == 302 or response.status_code == 204:
-                latency = (time.time() - start_time) * 1000
-                return PingResult(link, round(latency / 2), True, "success")
+                return PingResult(link, round(response.elapsed.seconds / 1000 / 2), True, "success")
             else:
                 return PingResult(link, 0, False, str(response.status_code))
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             return PingResult(link, 0, False, "unreachable")
 
 unique_port = 8089

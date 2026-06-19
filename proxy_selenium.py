@@ -1,8 +1,8 @@
 import asyncio
-from link_to_config import link_to_config
+from parser import link_to_config
 from playwright.async_api import Playwright, async_playwright
 
-from tunnel import Tunnel
+from xray import Tunnel
 
 
 class BrowserProxy:
