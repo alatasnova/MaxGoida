@@ -1,4 +1,4 @@
-import requests, httpx
+import httpx
 from datetime import timedelta
 from dataclasses import dataclass
 
@@ -25,9 +25,9 @@ class ConfigPinger:
         except NotImplementedError:
             return PingResult(link, 0, False, "unsupported")
 
-        client = httpx.AsyncClient(proxy=f'socks5h://127.0.0.1:{tunnel_port}')
+        async with httpx.AsyncClient(proxy=f'socks5h://127.0.0.1:{tunnel_port}') as client, \
+                xray.Tunnel(config, tunnel_port, verbose=False):
 
-        with xray.Tunnel(config, tunnel_port, verbose=False):
             try:
                 response = await client.head(self.ping_url, timeout=self.timeout)
                 if not response.is_error:
@@ -37,6 +37,6 @@ class ConfigPinger:
                 else:
                     # Status code error
                     return PingResult(link, 0, False, str(response.status_code))
-            except requests.exceptions.RequestException as e:
+            except httpx.HTTPError as e:
                 # Unreachable
                 return PingResult(link, 0, False, f"unreachable: {str(e)}")
