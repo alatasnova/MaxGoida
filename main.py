@@ -1,4 +1,6 @@
 import asyncio
+
+import httpx
 import uvicorn
 
 from config_server import ConfigServer
@@ -7,8 +9,9 @@ from pinger import ConfigPinger, PingResult
 
 
 URLS = [
-    "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS.txt",
-    "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/refs/heads/main/githubmirror/23.txt"
+    # "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS.txt",
+    "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/refs/heads/main/githubmirror/23.txt",
+    # "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/refs/heads/main/githubmirror/6.txt"
 ]
 START_PORT = 8089
 MAX_CONCURRENT = 20
@@ -22,43 +25,42 @@ async def main():
 
     await loop(config_server)
 
+def filter_success_results(ping_results: list[PingResult]) -> list[PingResult]:
+    return [r for r in ping_results if r.success]
+
 async def loop(server: ConfigServer):
     fetcher = Fetcher(URLS)
-    pinger = ConfigPinger()
+    pinger = ConfigPinger(START_PORT, max_concurrent=MAX_CONCURRENT)
 
     while True:
-        print("Fetching configs..")
-        raw_configs = await fetcher.fetch_all()
+        try:
+            print("Fetching configs..")
+            raw_configs = await fetcher.fetch_all()
+        except httpx.ConnectTimeout:
+            print("Can't fetch configs (Timeout)! Retrying...")
+            continue
+        except httpx.ConnectError:
+            print("Can't fetch configs (Connect Error)! Retrying...")
+            continue
 
-        port_pull = asyncio.Queue()
+        print(f"Pinging {len(raw_configs)} configs...")
+        pre_results = filter_success_results(await pinger.ping_links(raw_configs, verbose=False))
 
-        for port in range(START_PORT, START_PORT + MAX_CONCURRENT):
-            await port_pull.put(port)
+        # 2 step check
+        success_rate = len(pre_results) / len(raw_configs)
+        print(f"Got {len(pre_results)} working of {len(raw_configs)} ({success_rate * 100}%)! Quick 2 step checking...")
+        final_results = await pinger.ping_links([i.link for i in pre_results])
 
-        async def ping_config(link: str):
-            port = await port_pull.get()
-            try:
-                print(f"(port {port}) Pinging {link}")
-                return await pinger.ping_link(
-                    link, tunnel_port=port
-                )
-            finally:
-                await port_pull.put(port)
-
-        ping_results = await asyncio.gather(
-            *(ping_config(link) for link in raw_configs)
-        )
-
-        configs_success = [r for r in ping_results if r.success]
-        print("Tier 1 sorted configs:")
-        for i in configs_success:
+        print(f"Tier 1 sorted configs (got {len(final_results)}):")
+        for i in final_results:
             print(i.link)
 
         # desik will make the rest
         # (selenuim)
+        # oh no fuck
         ...
 
-        server.update_configs(configs_success)
+        server.update_configs(final_results)
 
 
 if __name__ == '__main__':
