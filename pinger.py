@@ -23,8 +23,7 @@ class ConfigPinger:
             self.free_port_pull.put_nowait(port)
 
 
-    async def ping_links(self, links: list[str], verbose=False):
-
+    async def ping_links(self, links: list[str], verbose=False) -> tuple[PingResult]:
         return await asyncio.gather(
             *(self.ping_link(link, verbose=verbose) for link in links)
         )
@@ -39,10 +38,8 @@ class ConfigPinger:
             except NotImplementedError:
                 return PingResult(link, 0, False, "unsupported")
 
-
             with xray.Tunnel(config, tunnel_port, verbose=False):
                 async with httpx.AsyncClient(proxy=f'socks5h://127.0.0.1:{tunnel_port}') as client:
-
                     try:
                         response = await client.head(self.ping_url, timeout=self.timeout)
                         if not response.is_error:
