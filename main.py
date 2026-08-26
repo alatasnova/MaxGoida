@@ -12,9 +12,13 @@ from pinger import ConfigPinger, PingResult
 
 
 URLS = [
-    # "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS.txt",
+    "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS.txt",
     "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/refs/heads/main/githubmirror/23.txt",
-    "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/refs/heads/main/githubmirror/6.txt"
+    "https://raw.githubusercontent.com/AvenCores/goida-vpn-configs/refs/heads/main/githubmirror/6.txt",
+    "https://github.com/sakha1370/OpenRay/raw/refs/heads/main/output/all_valid_proxies.txt",
+    "https://github.com/Epodonios/v2ray-configs/raw/main/Splitted-By-Protocol/trojan.txt",
+    "https://raw.githubusercontent.com/free18/v2ray/refs/heads/main/v.txt",
+    "https://raw.githubusercontent.com/V2RayRoot/V2RayConfig/refs/heads/main/Config/vless.txt"
 ]
 
 START_PORT = 8089
@@ -70,9 +74,17 @@ def filter_success_results(ping_results: list[PingResult]) -> list[PingResult]:
 def calc_check_probability(config_reputation: int) -> float:
     if config_reputation >= 0:
         return 1.0
-    if config_reputation == MIN_CONFIG_REPUTATION:
+    if config_reputation == -1:
+        return 0.25
+    if config_reputation == -2:
         return 0.05
-    return 1 / (abs(config_reputation) + 0.5)
+    return 0
+
+    # if config_reputation >= 0:
+    #     return 1.0
+    # if config_reputation == MIN_CONFIG_REPUTATION:
+    #     return 0.05
+    # return 1 / (abs(config_reputation) + 0.5)
 
 
 async def loop(server: ConfigServer):
@@ -83,11 +95,9 @@ async def loop(server: ConfigServer):
         try:
             print("Fetching configs..")
             raw_configs = await fetcher.fetch_all()
-        except httpx.ConnectTimeout:
+        except Exception as e:
+            print(e)
             print("Can't fetch configs (Timeout)! Retrying...")
-            continue
-        except httpx.ConnectError:
-            print("Can't fetch configs (Connect Error)! Retrying...")
             continue
 
         to_ping = set()
@@ -106,11 +116,11 @@ async def loop(server: ConfigServer):
 
         print(f"Pinging {len(to_ping)} configs (filtered from {len(raw_configs)})...")
         ping_results = await pinger.ping_links(to_ping, verbose=False)
-        pre_results = []
+        final_results = []
         for result in ping_results:
             current_config_reputation = config_reputations[result.link].score
             if result.success:
-                pre_results.append(result)
+                final_results.append(result)
                 current_config_reputation += 1
             else:
                 current_config_reputation -= 1
@@ -119,14 +129,12 @@ async def loop(server: ConfigServer):
 
         save_config_reputations()
 
-        # 2 step check
-        success_rate = len(pre_results) / len(to_ping)
-        print(f"Got {len(pre_results)} working of {len(to_ping)} ({success_rate * 100}%)! Quick 2 step checking...")
-        final_results = await pinger.ping_links([i.link for i in pre_results])
+        if len(final_results) == 0 or len(to_ping) == 0:
+            print("Nothing works. Retrying...")
+            continue
 
-        print(f"Tier 1 sorted configs (got {len(final_results)}):")
-        for i in final_results:
-            print(i.link)
+        success_rate = len(final_results) / len(to_ping)
+        print(f"Got {len(final_results)} working of {len(to_ping)} ({success_rate * 100}%)!")
 
         # desik will make the rest
         # (selenuim)

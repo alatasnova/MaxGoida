@@ -37,6 +37,8 @@ class ConfigPinger:
                 config = link_to_config.link_to_config(link, tunnel_port)
             except NotImplementedError:
                 return PingResult(link, 0, False, "unsupported")
+            except ValueError:
+                return PingResult(link, 0, False, "unsupported")
 
             with xray.Tunnel(config, tunnel_port, verbose=False):
                 async with httpx.AsyncClient(proxy=f'socks5h://127.0.0.1:{tunnel_port}') as client:

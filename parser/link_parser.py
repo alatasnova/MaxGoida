@@ -72,6 +72,9 @@ def parse_shadowsocks(link: str) -> ShadowSocksLink:
     except:
         method_and_password = base_link.username
 
+    if method_and_password is None:
+        raise ValueError("Method and password is None")
+
     try:
         method, password = method_and_password.split(":")
     except ValueError as e:
